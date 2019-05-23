@@ -44,11 +44,11 @@ public class PlatformerMovement : PlatformerEntity {
 
 	public void AttemptJump(){
 		if(IsGrounded){
-			PerformJump();
+			PerformGroundedJump();
 		}
 		else if(timeSinceLastGrounded < inputLeniency){
 			//if we were slightly too late inputting jump, allow it
-			PerformJump();
+			PerformGroundedJump();
 		}
 		else{
 			//if we're slightly too early inputting jump, buffer it
@@ -56,7 +56,15 @@ public class PlatformerMovement : PlatformerEntity {
 		}
 	}
 
-	protected void PerformJump() {
+	protected void PerformGroundedJump() {
+		jumpBuffer = 0;
+
+		Vector3 vel = _rigidbody.velocity;
+		vel.y = jumpSpeed;
+		_rigidbody.velocity = vel;
+	}
+
+	protected void PerformAirJump() {
 		jumpBuffer = 0;
 
 		Vector3 vel = _rigidbody.velocity;
@@ -67,16 +75,17 @@ public class PlatformerMovement : PlatformerEntity {
 	void CheckJumpBuffer(){
 		if(jumpBuffer > 0){
 			if(IsGrounded){
-				PerformJump();
+				PerformGroundedJump();
 			}
 			jumpBuffer -= Time.deltaTime;
 			if(jumpBuffer < 0){
 				jumpBuffer = 0;
+				PerformAirJump();
 			}
 		}
 	}
 
-	protected bool AttemptMovement(Vector3 moveInputs){
+	public bool AttemptMovement(Vector3 moveInputs){
 		float moveSpeed = IsGrounded ? baseMoveSpeedGround : baseMoveSpeedAir;
 
 		Vector3 adjustedMovement = AdjustHorizontalMovementDistance(moveInputs, moveSpeed, isCrouching);
