@@ -44,11 +44,11 @@ public class PlatformerMovement : PlatformerEntity {
 
 	public void AttemptJump(){
 		if(IsGrounded){
-			PerformGroundedJump();
+			PerformGroundedJump(jumpSpeed);
 		}
 		else if(timeSinceLastGrounded < inputLeniency){
 			//if we were slightly too late inputting jump, allow it
-			PerformGroundedJump();
+			PerformGroundedJump(jumpSpeed);
 		}
 		else{
 			//if we're slightly too early inputting jump, buffer it
@@ -56,7 +56,7 @@ public class PlatformerMovement : PlatformerEntity {
 		}
 	}
 
-	protected void PerformGroundedJump() {
+	protected void PerformGroundedJump(float speed) {
 		jumpBuffer = 0;
 
 		Vector3 vel = _rigidbody.velocity;
@@ -64,7 +64,7 @@ public class PlatformerMovement : PlatformerEntity {
 		_rigidbody.velocity = vel;
 	}
 
-	protected void PerformAirJump() {
+	protected void PerformAirJump(float speed) {
 		jumpBuffer = 0;
 
 		Vector3 vel = _rigidbody.velocity;
@@ -75,12 +75,12 @@ public class PlatformerMovement : PlatformerEntity {
 	void CheckJumpBuffer(){
 		if(jumpBuffer > 0){
 			if(IsGrounded){
-				PerformGroundedJump();
+				PerformGroundedJump(jumpSpeed);
 			}
 			jumpBuffer -= Time.deltaTime;
 			if(jumpBuffer < 0){
 				jumpBuffer = 0;
-				PerformAirJump();
+				PerformAirJump(jumpSpeed);
 			}
 		}
 	}
@@ -88,22 +88,25 @@ public class PlatformerMovement : PlatformerEntity {
 	public bool AttemptMovement(Vector3 moveInputs){
 		float moveSpeed = IsGrounded ? baseMoveSpeedGround : baseMoveSpeedAir;
 
-		Vector3 adjustedMovement = AdjustHorizontalMovementDistance(moveInputs, moveSpeed, isCrouching);
+		Vector3 adjustedMovement = LimitHorizontalMovementDistance(moveInputs, moveSpeed, isCrouching);
 		if(adjustedMovement == Vector3.zero){
 			return false;
 		}
 
 		Vector3 newPosition = transform.position;
-		newPosition.x += adjustedMovement.x;	//x axis only for now?
+		newPosition.x += adjustedMovement.x;	
+		newPosition.y += adjustedMovement.y;	
 		transform.position = newPosition;
 
 		return true;
 	}
 
 	/* Limits movement so we don't push the entity too deep into a wall */
-	public Vector3 AdjustHorizontalMovementDistance(Vector3 moveDir, float moveSpd, bool reducedHitbox = false) {
-		if (moveDir.Equals(Vector3.zero)) return Vector3.zero;
+	public Vector3 LimitHorizontalMovementDistance(Vector3 inputDir, float moveSpd, bool reducedHitbox = false) {
+		if (inputDir.Equals(Vector3.zero)) return Vector3.zero;
 		
+		const float slopeWallThreshold = 0.1f;
+
 		Vector3 origin = transform.position;
 		RaycastHit r;
 		bool hit;
@@ -112,8 +115,13 @@ public class PlatformerMovement : PlatformerEntity {
 		float[] rayOffsets = new float[5]{0.8f, 0.5f, 0.2f, -0.15f, -0.45f};
 		
 		float spd =  0.5f + (moveSpd * Time.deltaTime);
-		Vector3 dir = new Vector3(moveDir.x, 0);
+		Vector3 moveDir = new Vector3(inputDir.x, 0);
 		int gMask = Layers.GetGroundMask(true);
+
+		bool ascendingSlope = false;
+		Vector3 aSlopeNormal = Vector3.zero;
+		bool descendingSlope = false;
+		Vector3 dSlopeNormal = Vector3.zero;
 
 		for(int i = 0; i < 5; i++){
 			//if crouching, skip upper checks (wont necessarily be correct for every game)
@@ -121,8 +129,15 @@ public class PlatformerMovement : PlatformerEntity {
 				continue;
 			}
 			Vector3 rayStart = origin + new Vector3(0, rayOffsets[i], 0);
-			hit = Physics.Raycast(rayStart, dir, out r, spd, gMask);
-			Debug.DrawRay(rayStart, spd * dir, (hit ? Color.red : Color.white));
+			hit = Physics.Raycast(rayStart, moveDir, out r, spd, gMask);
+			Debug.DrawRay(rayStart, spd * moveDir, (hit ? Color.red : Color.white));
+
+			//if hitting a slope, ignore
+			if(i == 4 && Mathf.Abs(r.normal.y) > slopeWallThreshold){
+				ascendingSlope = true;
+				aSlopeNormal = r.normal;
+				continue;
+			}
 			distlist[i] = r.distance;
 
 		}
@@ -138,13 +153,46 @@ public class PlatformerMovement : PlatformerEntity {
 		}
 
 		if (shortest > 0 && shortest < float.MaxValue) {
-			moveDir.x *= (shortest - 0.5f);
+			moveDir.x *= (shortest - colHalfWidth);
 		}
 		else {
 			moveDir.x *= moveSpd * Time.deltaTime;
 		}
 
+		if(ascendingSlope){
+			Debug.Log("Going Up!");
+			moveDir = AscendSlope(moveDir,aSlopeNormal);
+		}
+
+		Vector3 descendCheckStart = transform.position + new Vector3(-groundingHalfWidth * Mathf.Sign(moveDir.x), 0);
+		bool slopeHit = Physics.Raycast(descendCheckStart, Vector3.down, out r, groundCheckRayLength, gMask);
+		if(slopeHit){
+			if(Mathf.Abs(r.normal.y) > slopeWallThreshold && (r.normal.x * moveDir.x > 0)){
+				descendingSlope = true;
+				dSlopeNormal = r.normal;
+
+				moveDir = DescendSlope(moveDir,dSlopeNormal);
+			}
+		}
+
+
+		Debug.Log(moveDir);
+
 		return moveDir;
+	}
+
+	public Vector3 AscendSlope(Vector3 movement, Vector3 slopeNormal){
+		float angle = Vector3.Angle(slopeNormal, transform.up);
+		float tan = Mathf.Tan(Mathf.Deg2Rad * angle);
+		movement.y = tan * Mathf.Abs(movement.x);
+		return movement;
+	}
+
+	public Vector3 DescendSlope(Vector3 movement, Vector3 slopeNormal){
+		float angle = Vector3.Angle(slopeNormal, transform.up);
+		float tan = Mathf.Tan(Mathf.Deg2Rad * angle);
+		movement.y = tan * -Mathf.Abs(movement.x);
+		return movement;
 	}
 
 	public bool CanUncrouch(){
@@ -154,8 +202,8 @@ public class PlatformerMovement : PlatformerEntity {
 		int gMask = Layers.GetGroundMask(true);
 		bool hit = false;
 		hit |= Physics.Raycast(origin, dir, length, gMask);
-		hit |= Physics.Raycast(origin + new Vector3(colHalfWidth, 0), dir, length, gMask);
-		hit |= Physics.Raycast(origin + new Vector3(colHalfWidth, 0), dir, length, gMask);
+		hit |= Physics.Raycast(origin + new Vector3(groundingHalfWidth, 0), dir, length, gMask);
+		hit |= Physics.Raycast(origin + new Vector3(groundingHalfWidth, 0), dir, length, gMask);
 		return !hit;
 	}
 }

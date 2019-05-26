@@ -10,12 +10,18 @@ public class PlatformerEntity : MonoBehaviour
 
 	const float maxFallSpeed = 20;
 
+
 	//distance from center to just under feet
 	protected float groundCheckRayLength = 0.55f;
-	//distance from center to one side of collision box (minus a small bit for skin thickness)
-	protected float colHalfWidth = 0.425f;
+	//distance from center to one side of collision box (exact)
+	protected float colHalfWidth = 0.475f;
+	//distance from center to one side of collision box (with small inset)	
+	protected float groundingHalfWidth = 0.425f;
+	//distance from center of collision box to floor
+	protected float colToFloor = 0.475f;
 	protected bool groundedThisFrame;
 	protected bool groundedLastFrame;
+	protected float distanceToGround;
 	protected float timeSinceLastGrounded;
 	public bool IsGrounded{
 		get{ return groundedThisFrame; }
@@ -56,10 +62,18 @@ public class PlatformerEntity : MonoBehaviour
 	protected void UpdateGroundedState(){
 		groundedLastFrame = groundedThisFrame;
 		groundedThisFrame = CheckGroundedState();
-		if(groundedThisFrame){
+		if(groundedThisFrame && !groundedLastFrame){
+			_rigidbody.useGravity = false;
+			_rigidbody.velocity = Vector3.zero;
+			Vector3 pos = transform.position;
+			pos.y -= distanceToGround;
+			transform.position = pos;
 			timeSinceLastGrounded = 0;
 		}
-		else{
+		if(!groundedThisFrame && groundedLastFrame){
+			_rigidbody.useGravity = true;
+		}
+		if(!groundedThisFrame){
 			timeSinceLastGrounded += Time.deltaTime;
 		}
 	}
@@ -70,14 +84,27 @@ public class PlatformerEntity : MonoBehaviour
 		bool groundHit;
 		LayerMask gMask = Layers.GetGroundMask(false);
 		
-		bool groundHitL = Physics.Raycast(transform.position + new Vector3(-colHalfWidth, 0), Vector3.down, groundCheckRayLength, gMask);
-		bool groundHitM = Physics.Raycast(transform.position, Vector3.down, groundCheckRayLength, gMask);
-		bool groundHitR = Physics.Raycast(transform.position + new Vector3(colHalfWidth, 0), Vector3.down, groundCheckRayLength, gMask);
+		float distToGround = float.MaxValue;
+		RaycastHit r;
+		bool groundHitL = Physics.Raycast(transform.position + new Vector3(-groundingHalfWidth, 0), Vector3.down, out r, groundCheckRayLength, gMask);
+		if(groundHitL){
+			distToGround = Mathf.Min(r.distance - colToFloor, distToGround);
+		}
+		bool groundHitM = Physics.Raycast(transform.position, Vector3.down, out r, groundCheckRayLength, gMask);
+		if(groundHitM){
+			distToGround = Mathf.Min(r.distance - colToFloor, distToGround);
+		}
+		bool groundHitR = Physics.Raycast(transform.position + new Vector3(groundingHalfWidth, 0), Vector3.down, out r, groundCheckRayLength, gMask);
+		if(groundHitR){
+			distToGround = Mathf.Min(r.distance - colToFloor, distToGround);
+		}
 		groundHit = (groundHitL || groundHitM || groundHitR);
+		distanceToGround = (groundHit) ? distToGround : 0;
+		
 
+		Debug.DrawRay(transform.position + new Vector3(-groundingHalfWidth, 0), Vector3.down * groundCheckRayLength, (groundHitL ? Color.green : Color.white));
 		Debug.DrawRay(transform.position, Vector3.down * groundCheckRayLength, (groundHitM ? Color.green : Color.white));
-		Debug.DrawRay(transform.position + new Vector3(-colHalfWidth, 0), Vector3.down * groundCheckRayLength, (groundHitL ? Color.green : Color.white));
-		Debug.DrawRay(transform.position + new Vector3(colHalfWidth, 0), Vector3.down * groundCheckRayLength, (groundHitR ? Color.green : Color.white));
+		Debug.DrawRay(transform.position + new Vector3(groundingHalfWidth, 0), Vector3.down * groundCheckRayLength, (groundHitR ? Color.green : Color.white));
 		return groundHit;
 	}
 
