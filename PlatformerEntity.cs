@@ -42,6 +42,7 @@ public class PlatformerEntity : MonoBehaviour
 	protected virtual void FixedUpdate(){
 		ApplyGravity();
 		LimitFallSpeed();
+		DecayHorizontalMotion();
 	}
 
 	/* makes platforming feel much better by increasing gravity when at peak of jump or moving downward */
@@ -57,6 +58,15 @@ public class PlatformerEntity : MonoBehaviour
 		_rigidbody.velocity = v;
 	}
 
+	void DecayHorizontalMotion(){
+		const float velDecayRate = 0.95f;
+		Vector3 v = _rigidbody.velocity;
+		if(v.x == 0){
+			return;
+		}
+		v.x *= velDecayRate;
+		_rigidbody.velocity = v;
+	}
 
 
 	protected void UpdateGroundedState(){

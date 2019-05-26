@@ -106,13 +106,16 @@ public class PlatformerMovement : PlatformerEntity {
 		if (inputDir.Equals(Vector3.zero)) return Vector3.zero;
 		
 		const float slopeWallThreshold = 0.1f;
+		const int numChecks = 5;
+		const int numUpper = 2;	//checks positioned above the crouching hitbox
 
 		Vector3 origin = transform.position;
 		RaycastHit r;
 		bool hit;
-		float[] distlist = new float[5];
-		//offsets assume a 1x2 tile hitbox with the origin in the center of the lower tile
-		float[] rayOffsets = new float[5]{0.8f, 0.5f, 0.2f, -0.15f, -0.45f};
+		float[] distlist = new float[numChecks];
+		//offsets assume a 1x1 tile hitbox with the origin in the center of the lower tile
+		//offsets MUST be in order from bottom to top
+		float[] rayOffsets = new float[numChecks]{-0.45f, -0.15f, 0.0f, 0.15f, 0.45f};
 		
 		float spd =  0.5f + (moveSpd * Time.deltaTime);
 		Vector3 moveDir = new Vector3(inputDir.x, 0);
@@ -123,17 +126,17 @@ public class PlatformerMovement : PlatformerEntity {
 		bool descendingSlope = false;
 		Vector3 dSlopeNormal = Vector3.zero;
 
-		for(int i = 0; i < 5; i++){
+		for(int i = 0; i < numChecks; i++){
 			//if crouching, skip upper checks (wont necessarily be correct for every game)
-			if(i < 2 && reducedHitbox){
+			if((i >= (numChecks - numUpper)) && reducedHitbox){
 				continue;
 			}
 			Vector3 rayStart = origin + new Vector3(0, rayOffsets[i], 0);
 			hit = Physics.Raycast(rayStart, moveDir, out r, spd, gMask);
 			Debug.DrawRay(rayStart, spd * moveDir, (hit ? Color.red : Color.white));
 
-			//if hitting a slope, ignore
-			if(i == 4 && Mathf.Abs(r.normal.y) > slopeWallThreshold){
+			//if hitting a slope, handle it (bottom raycast only)
+			if(i == 0 && Mathf.Abs(r.normal.y) > slopeWallThreshold){
 				ascendingSlope = true;
 				aSlopeNormal = r.normal;
 				continue;
@@ -176,7 +179,7 @@ public class PlatformerMovement : PlatformerEntity {
 		}
 
 
-		Debug.Log(moveDir);
+		//Debug.Log(moveDir);
 
 		return moveDir;
 	}
