@@ -63,12 +63,15 @@ public class PlatformerEntity : MonoBehaviour
 		groundedLastFrame = groundedThisFrame;
 		groundedThisFrame = CheckGroundedState();
 		if(groundedThisFrame && !groundedLastFrame){
-			_rigidbody.useGravity = false;
-			_rigidbody.velocity = Vector3.zero;
-			Vector3 pos = transform.position;
-			pos.y -= distanceToGround;
-			transform.position = pos;
-			timeSinceLastGrounded = 0;
+			//only do all this if we're going down
+			if(_rigidbody.velocity.y <= 0.5f){
+				_rigidbody.useGravity = false;
+				_rigidbody.velocity = Vector3.zero;
+				Vector3 pos = transform.position;
+				pos.y -= distanceToGround;
+				transform.position = pos;
+				timeSinceLastGrounded = 0;
+			}
 		}
 		if(!groundedThisFrame && groundedLastFrame){
 			_rigidbody.useGravity = true;
