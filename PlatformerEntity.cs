@@ -16,7 +16,7 @@ public class PlatformerEntity : MonoBehaviour
 	//distance from center to one side of collision box (exact)
 	protected float colHalfWidth = 0.475f;
 	//distance from center to one side of collision box (with small inset)	
-	protected float groundingHalfWidth = 0.425f;
+	protected float groundingHalfWidth = 0.475f;
 	//distance from center of collision box to floor
 	protected float colToFloor = 0.475f;
 	protected bool groundedThisFrame;
@@ -111,7 +111,17 @@ public class PlatformerEntity : MonoBehaviour
 		if(groundHitR){
 			distToGround = Mathf.Min(r.distance - colToFloor, distToGround);
 		}
-		groundHit = (groundHitL || groundHitM || groundHitR);
+		bool groundHitMR = Physics.Raycast(transform.position + new Vector3(0.5f*groundingHalfWidth, 0), Vector3.down, out r, groundCheckRayLength, gMask);
+		if(groundHitMR){
+			distToGround = Mathf.Min(r.distance - colToFloor, distToGround);
+		}
+		bool groundHitML = Physics.Raycast(transform.position + new Vector3(-0.5f*groundingHalfWidth, 0), Vector3.down, out r, groundCheckRayLength, gMask);
+		if(groundHitML){
+			distToGround = Mathf.Min(r.distance - colToFloor, distToGround);
+		}
+
+		groundHit = (groundHitL || groundHitM || groundHitR || groundHitML || groundHitMR);
+		
 		distanceToGround = (groundHit) ? distToGround : 0;
 		
 

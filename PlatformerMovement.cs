@@ -37,6 +37,9 @@ public class PlatformerMovement : PlatformerEntity {
 	
 	protected override void Update(){
 		base.Update();
+		if(groundedThisFrame){
+			numAirJumps = maxAirJumps;
+		}
 		CheckJumpBuffer();
 	}
 
@@ -65,6 +68,11 @@ public class PlatformerMovement : PlatformerEntity {
 	}
 
 	protected void PerformAirJump(float speed) {
+		if(numAirJumps <= 0){
+			return;
+		}
+		numAirJumps--;
+
 		jumpBuffer = 0;
 
 		Vector3 vel = _rigidbody.velocity;
@@ -80,7 +88,9 @@ public class PlatformerMovement : PlatformerEntity {
 			jumpBuffer -= Time.deltaTime;
 			if(jumpBuffer < 0){
 				jumpBuffer = 0;
-				PerformAirJump(jumpSpeed);
+				if(numAirJumps > 0){
+					PerformAirJump(jumpSpeed);
+				}
 			}
 		}
 	}
@@ -121,6 +131,7 @@ public class PlatformerMovement : PlatformerEntity {
 		Vector3 moveDir = new Vector3(inputDir.x, 0);
 		int gMask = Layers.GetGroundMask(true);
 
+		//used to allow natural movement when colliding with slopes 
 		bool ascendingSlope = false;
 		Vector3 aSlopeNormal = Vector3.zero;
 		bool descendingSlope = false;
@@ -163,7 +174,6 @@ public class PlatformerMovement : PlatformerEntity {
 		}
 
 		if(ascendingSlope){
-			Debug.Log("Going Up!");
 			moveDir = AscendSlope(moveDir,aSlopeNormal);
 		}
 
