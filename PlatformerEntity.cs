@@ -52,12 +52,14 @@ public class PlatformerEntity : MonoBehaviour
 		}
 	}
 
+	/* prevents entity from moving so fast they fly through colliders */
 	void LimitFallSpeed(){
 		Vector3 v = _rigidbody.velocity;
 		v.y = Mathf.Max(v.y, -maxFallSpeed);
 		_rigidbody.velocity = v;
 	}
 
+	/* reduces horizontal momentum over time */
 	void DecayHorizontalMotion(){
 		const float velDecayRate = 0.95f;
 		Vector3 v = _rigidbody.velocity;
@@ -68,7 +70,7 @@ public class PlatformerEntity : MonoBehaviour
 		_rigidbody.velocity = v;
 	}
 
-
+	/* checks if grounded and updates entity accordingly */
 	protected void UpdateGroundedState(){
 		groundedLastFrame = groundedThisFrame;
 		groundedThisFrame = CheckGroundedState();
@@ -82,14 +84,20 @@ public class PlatformerEntity : MonoBehaviour
 				transform.position = pos;
 				timeSinceLastGrounded = 0;
 			}
+			EnterGroundedState();
 		}
 		if(!groundedThisFrame && groundedLastFrame){
 			_rigidbody.useGravity = true;
+			ExitGroundedState();
 		}
 		if(!groundedThisFrame){
 			timeSinceLastGrounded += Time.deltaTime;
 		}
 	}
+
+	protected virtual void EnterGroundedState(){ }
+
+	protected virtual void ExitGroundedState(){ }
 
 	
 	/* checks if entity is currently touching the ground */
