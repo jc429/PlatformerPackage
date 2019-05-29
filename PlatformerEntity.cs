@@ -10,7 +10,7 @@ public class PlatformerEntity : MonoBehaviour
 
 	const float maxFallSpeed = 20;
 
-
+	[Space]
 	//distance from center to just under feet
 	protected float groundCheckRayLength = 0.55f;
 	//distance from center to one side of collision box (exact)
@@ -19,6 +19,7 @@ public class PlatformerEntity : MonoBehaviour
 	protected float groundingHalfWidth = 0.475f;
 	//distance from center of collision box to floor
 	protected float colToFloor = 0.475f;
+	[Space]
 	protected bool groundedThisFrame;
 	protected bool groundedLastFrame;
 	protected float distanceToGround;
@@ -26,6 +27,10 @@ public class PlatformerEntity : MonoBehaviour
 	public bool IsGrounded{
 		get{ return groundedThisFrame; }
 	}
+
+	[Space]
+	protected float gravMultiLarge = 2.5f;
+	protected float gravMultiSmall = 2;
 
     // Start is called before the first frame update
     protected virtual void Start()
@@ -37,18 +42,27 @@ public class PlatformerEntity : MonoBehaviour
  	protected virtual void Update()
     {
         UpdateGroundedState();
+		ApplyGravity();
     }
 
 	protected virtual void FixedUpdate(){
-		ApplyGravity();
 		LimitFallSpeed();
 		DecayHorizontalMotion();
 	}
 
 	/* makes platforming feel much better by increasing gravity when at peak of jump or moving downward */
 	void ApplyGravity(){
-		if (!IsGrounded && _rigidbody.velocity.y < 5f) {
-			_rigidbody.AddForce(Physics.gravity * 2);
+		if (!IsGrounded){
+			//if going down use big multiplier
+			if(_rigidbody.velocity.y < 0) {
+				//_rigidbody.AddForce(Physics.gravity * gravMultiLarge);
+				Vector3 accel = Vector2.up * Physics.gravity.y * gravMultiLarge * Time.deltaTime;
+				_rigidbody.velocity += accel;
+			}
+			/*else if(!VirtualController.JumpButtonPressed(true)){
+				Vector3 accel = Vector2.up * Physics.gravity.y * gravMultiSmall * Time.deltaTime;
+				_rigidbody.velocity += accel;
+			}*/
 		}
 	}
 

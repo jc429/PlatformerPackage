@@ -8,8 +8,12 @@ public class PlatformerMovement : PlatformerEntity {
 	const float baseMoveSpeedGround = 4f;
 	const float baseMoveSpeedAir = 3.2f;
 	const float jumpSpeed = 9f;
+	const float dashSpeed = 10f;
+
 	const int maxAirJumps = 1;
 	int numAirJumps;
+	const int maxAirDashes = 1;
+	int numAirDashes;
 	
 	bool isCrouching;
 	
@@ -37,10 +41,16 @@ public class PlatformerMovement : PlatformerEntity {
 	
 	protected override void Update(){
 		base.Update();
-		if(groundedThisFrame){
-			numAirJumps = maxAirJumps;
-		}
+		
 		CheckJumpBuffer();
+	}
+
+
+	protected override void EnterGroundedState(){
+		//reset jumps, dashes, etc here
+		//apply landing effect?
+		numAirJumps = maxAirJumps;
+		numAirDashes = maxAirDashes;
 	}
 
 
@@ -94,6 +104,16 @@ public class PlatformerMovement : PlatformerEntity {
 			}
 		}
 	}
+
+
+	public bool PerformAirDash(float speed, Vector2 direction){
+		if(direction == Vector2.zero){
+			return false;
+		}
+
+		
+	}
+
 
 	public bool AttemptMovement(Vector3 moveInputs){
 		float moveSpeed = IsGrounded ? baseMoveSpeedGround : baseMoveSpeedAir;
