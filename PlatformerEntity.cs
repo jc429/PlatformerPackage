@@ -52,9 +52,10 @@ public class PlatformerEntity : MonoBehaviour
 
 	/* makes platforming feel much better by increasing gravity when at peak of jump or moving downward */
 	void ApplyGravity(){
+		float velGravLimit = 5f;
 		if (!IsGrounded){
 			//if going down use big multiplier
-			if(_rigidbody.velocity.y < 0) {
+			if(_rigidbody.velocity.y < velGravLimit) {
 				//_rigidbody.AddForce(Physics.gravity * gravMultiLarge);
 				Vector3 accel = Vector2.up * Physics.gravity.y * gravMultiLarge * Time.deltaTime;
 				_rigidbody.velocity += accel;

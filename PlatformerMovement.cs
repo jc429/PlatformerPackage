@@ -8,7 +8,7 @@ public class PlatformerMovement : PlatformerEntity {
 	const float baseMoveSpeedGround = 4f;
 	const float baseMoveSpeedAir = 3.2f;
 	const float jumpSpeed = 9f;
-	const float dashSpeed = 10f;
+	const float dashSpeed = 30f;
 
 	const int maxAirJumps = 1;
 	int numAirJumps;
@@ -53,7 +53,7 @@ public class PlatformerMovement : PlatformerEntity {
 		numAirDashes = maxAirDashes;
 	}
 
-
+	/***  Jump  ****************************************************************************/
 
 	public void AttemptJump(){
 		if(IsGrounded){
@@ -105,15 +105,58 @@ public class PlatformerMovement : PlatformerEntity {
 		}
 	}
 
+	/***  Dash  ****************************************************************************/
+
+	public void AttemptDash(Vector2 inputs){
+		PerformAirDash(dashSpeed,inputs);
+	}
 
 	public bool PerformAirDash(float speed, Vector2 direction){
 		if(direction == Vector2.zero){
 			return false;
 		}
+		if(numAirDashes <= 0){
+			return false;
+		}
 
-		
+		numAirDashes--;
+
+		Vector3 normalizedDir = direction.normalized;
+		_rigidbody.velocity = normalizedDir * speed;
+		_rigidbody.useGravity = false;
+
+		StartCoroutine(DashSlow());
+
+		return true;
 	}
 
+	IEnumerator DashSlow(){
+
+		const float maxDrag = 10;
+		const float minDrag = 0;
+		const float dashDuration = 0.5f;
+		float dashTime = 0;
+
+		while (dashTime < dashDuration)
+		{
+			dashTime += Time.deltaTime;
+			float drag = Mathf.Lerp(maxDrag, minDrag, dashTime/dashDuration);
+			_rigidbody.drag = drag;
+			yield return null;
+		}
+
+
+        yield return new WaitForSeconds(.3f);
+
+		DashEnd();
+	}
+
+	void DashEnd(){
+		_rigidbody.useGravity = true;
+		_rigidbody.drag = 0;
+	}
+
+	/***  Basic Movement  ******************************************************************/
 
 	public bool AttemptMovement(Vector3 moveInputs){
 		float moveSpeed = IsGrounded ? baseMoveSpeedGround : baseMoveSpeedAir;

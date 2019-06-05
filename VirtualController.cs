@@ -13,6 +13,10 @@ public static class VirtualController {
 		return Input.GetAxisRaw("Vertical");
 	}
 
+	public static Vector2 GetDpadAxes(){
+		return new Vector2(Input.GetAxisRaw("Horizontal"),Input.GetAxisRaw("Vertical"));
+	}
+
 	public static bool UpDPadPressed(bool held = false){
 		if(held){
 			return (Input.GetKey(KeyCode.W)||Input.GetKey(KeyCode.UpArrow));

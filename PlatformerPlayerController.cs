@@ -31,5 +31,9 @@ public class PlatformerPlayerController : MonoBehaviour
         if (VirtualController.JumpButtonPressed()) {
 			_movement.AttemptJump();
 		}
+
+		if(Input.GetKeyDown(KeyCode.LeftShift)){
+			_movement.AttemptDash(VirtualController.GetDpadAxes());
+		}
     }
 }
