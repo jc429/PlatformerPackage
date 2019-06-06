@@ -23,17 +23,17 @@ public class PlatformerPlayerController : MonoBehaviour
 
 	void Move(){
 		Vector3 moveInputs = Vector3.zero;
-		moveInputs.x = VirtualController.GetAxisHorizontal();
-		moveInputs.y = VirtualController.GetAxisVertical();
+		moveInputs.x = VirtualController.GetDPadAxisHorizontal();
+		moveInputs.y = VirtualController.GetDPadAxisVertical();
 
 		_movement.AttemptMovement(moveInputs);
 
         if (VirtualController.JumpButtonPressed()) {
-			_movement.AttemptJump();
+			_movement.AttemptJump(VirtualController.GetDPadAxes());
 		}
 
 		if(Input.GetKeyDown(KeyCode.LeftShift)){
-			_movement.AttemptDash(VirtualController.GetDpadAxes());
+			_movement.AttemptDash(VirtualController.GetDPadAxes());
 		}
     }
 }

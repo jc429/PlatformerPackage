@@ -10,6 +10,7 @@ public class PlatformerEntity : MonoBehaviour
 
 	const float maxFallSpeed = 20;
 
+	private bool haltGravity = false;
 	[Space]
 	//distance from center to just under feet
 	protected float groundCheckRayLength = 0.55f;
@@ -53,7 +54,7 @@ public class PlatformerEntity : MonoBehaviour
 	/* makes platforming feel much better by increasing gravity when at peak of jump or moving downward */
 	void ApplyGravity(){
 		float velGravLimit = 5f;
-		if (!IsGrounded){
+		if (!IsGrounded && !haltGravity){
 			//if going down use big multiplier
 			if(_rigidbody.velocity.y < velGravLimit) {
 				//_rigidbody.AddForce(Physics.gravity * gravMultiLarge);
@@ -114,6 +115,15 @@ public class PlatformerEntity : MonoBehaviour
 
 	protected virtual void ExitGroundedState(){ }
 
+	public void DisableGravity(){
+		haltGravity = true;
+		_rigidbody.useGravity = false;
+	}
+
+	public void EnableGravity(){
+		haltGravity = false;
+		_rigidbody.useGravity = true;
+	}
 	
 	/* checks if entity is currently touching the ground */
 	public bool CheckGroundedState() {
@@ -154,5 +164,26 @@ public class PlatformerEntity : MonoBehaviour
 		return groundHit;
 	}
 
-	
+	/* checks if entity is touching a wall */
+	public bool CheckIfTouchingWall(int checkDir) {
+		if(checkDir == 0){
+			return false;
+		}
+
+		Vector3 dir = new Vector3((int)Mathf.Sign(checkDir),0);
+		bool hit = false;		
+		Vector3 origin = transform.position;
+		LayerMask gMask = Layers.GetGroundMask(false);
+		float distance = 0.55f;
+
+		const int numChecks = 5;
+		float[] rayOffsets = new float[numChecks]{-0.45f, -0.15f, 0.0f, 0.15f, 0.45f};
+
+		for(int i = 0; i < numChecks; i++){
+			Vector3 rayStart = origin + new Vector3(0, rayOffsets[i], 0);
+			hit |= Physics.Raycast(rayStart, dir, distance, gMask);
+		}
+
+		return hit;
+	}
 }

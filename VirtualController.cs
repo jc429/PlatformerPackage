@@ -5,15 +5,15 @@ using UnityEngine;
 public static class VirtualController {
 
 
-	public static float GetAxisHorizontal(){
+	public static float GetDPadAxisHorizontal(){
 		return Input.GetAxisRaw("Horizontal");
 	}
 
-	public static float GetAxisVertical(){
+	public static float GetDPadAxisVertical(){
 		return Input.GetAxisRaw("Vertical");
 	}
 
-	public static Vector2 GetDpadAxes(){
+	public static Vector2 GetDPadAxes(){
 		return new Vector2(Input.GetAxisRaw("Horizontal"),Input.GetAxisRaw("Vertical"));
 	}
 
@@ -106,7 +106,7 @@ public static class VirtualController {
 
 	public static bool AnyKeyPressed(){
 		return ActionButtonPressed() || JumpButtonPressed() 
-		|| (GetAxisHorizontal() != 0) || (GetAxisVertical() != 0)
+		|| (GetDPadAxisHorizontal() != 0) || (GetDPadAxisVertical() != 0)
 		|| PauseButtonPressed();
 	}
 }

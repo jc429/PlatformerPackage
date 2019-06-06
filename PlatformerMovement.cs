@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class PlatformerMovement : PlatformerEntity {
 
+	bool infiniteAirActions = true;
+
 	/* adjustible physics properties */
 	const float baseMoveSpeedGround = 4f;
 	const float baseMoveSpeedAir = 3.2f;
@@ -15,6 +17,11 @@ public class PlatformerMovement : PlatformerEntity {
 	const int maxAirDashes = 1;
 	int numAirDashes;
 	
+	bool isWallJumping;
+	const float wallJumpLerpDuration = 1;
+	float wallJumpLerpTime;
+	
+	bool isDashing;
 	bool isCrouching;
 	
 	//timeframe to buffer a jump input (after walking off a cliff)
@@ -53,15 +60,33 @@ public class PlatformerMovement : PlatformerEntity {
 		numAirDashes = maxAirDashes;
 	}
 
+	/***  Halting Actions  ******************************************************************/
+	
+	public void HaltDownwardsMomentum(){
+		_rigidbody.velocity = Vector3.zero;
+		StartCoroutine(Suspend(0.13f));
+	}
+
+	IEnumerator Suspend(float time){
+		_rigidbody.velocity = Vector3.zero;
+		DisableGravity();
+		yield return new WaitForSeconds(time);
+		if(!IsGrounded){
+			EnableGravity();
+			_rigidbody.velocity = new Vector3(0,-1,0);
+		}
+		yield break;
+	}
+
 	/***  Jump  ****************************************************************************/
 
-	public void AttemptJump(){
+	public void AttemptJump(Vector2 dirInput){
 		if(IsGrounded){
-			PerformGroundedJump(jumpSpeed);
+			PerformGroundedJump(jumpSpeed, dirInput.x);
 		}
 		else if(timeSinceLastGrounded < inputLeniency){
 			//if we were slightly too late inputting jump, allow it
-			PerformGroundedJump(jumpSpeed);
+			PerformGroundedJump(jumpSpeed, dirInput.x);
 		}
 		else{
 			//if we're slightly too early inputting jump, buffer it
@@ -69,40 +94,82 @@ public class PlatformerMovement : PlatformerEntity {
 		}
 	}
 
-	protected void PerformGroundedJump(float speed) {
+	protected void PerformGroundedJump(float speed, float horizInput) {
 		jumpBuffer = 0;
 
 		Vector3 vel = _rigidbody.velocity;
-		vel.y = jumpSpeed;
+		vel.y = speed;
+		if(horizInput != 0){
+			float dir = Mathf.Sign(horizInput);
+			vel.x = 0.2f * dir * speed;
+		}
 		_rigidbody.velocity = vel;
 	}
 
-	protected void PerformAirJump(float speed) {
+	protected void PerformAirJump(float speed, float horizInput) {
 		if(numAirJumps <= 0){
 			return;
 		}
-		numAirJumps--;
+
+		if(!infiniteAirActions){
+			numAirJumps--;
+		}
+
+		ClearWallJumpVars();
 
 		jumpBuffer = 0;
 
 		Vector3 vel = _rigidbody.velocity;
-		vel.y = jumpSpeed;
+		vel.y = speed;
+		if(horizInput != 0){
+			float dir = Mathf.Sign(horizInput);
+			vel.x = 0.2f * dir * speed;
+		}
 		_rigidbody.velocity = vel;
 	}
 
 	void CheckJumpBuffer(){
 		if(jumpBuffer > 0){
 			if(IsGrounded){
-				PerformGroundedJump(jumpSpeed);
+				PerformGroundedJump(jumpSpeed, VirtualController.GetDPadAxisHorizontal());
 			}
 			jumpBuffer -= Time.deltaTime;
 			if(jumpBuffer < 0){
 				jumpBuffer = 0;
-				if(numAirJumps > 0){
-					PerformAirJump(jumpSpeed);
+				if(CheckIfTouchingWall(-1)){
+					PerformWallJump(jumpSpeed, 1);
+				}
+				else if(CheckIfTouchingWall(1)){
+					PerformWallJump(jumpSpeed, -1);
+				}
+				else if(numAirJumps > 0){
+					PerformAirJump(jumpSpeed, VirtualController.GetDPadAxisHorizontal());
 				}
 			}
 		}
+	}
+
+	/***  Wall Jump  ************************************************************************/
+
+	protected void PerformWallJump(float speed, int launchDir) {
+		if(launchDir == 0){
+			return;
+		}
+
+		jumpBuffer = 0;
+
+		Vector3 vel = _rigidbody.velocity;
+		vel.y = jumpSpeed;
+		vel.x = jumpSpeed * launchDir * 1;
+		_rigidbody.velocity = vel;
+
+		isWallJumping = true;
+		wallJumpLerpTime = 0;
+	}
+
+	void ClearWallJumpVars(){
+		isWallJumping = false;
+		wallJumpLerpTime = 0;
 	}
 
 	/***  Dash  ****************************************************************************/
@@ -119,11 +186,15 @@ public class PlatformerMovement : PlatformerEntity {
 			return false;
 		}
 
-		numAirDashes--;
+		if(!infiniteAirActions){
+			numAirDashes--;
+		}
+		isDashing = true;
+		LockInputs(true);
 
 		Vector3 normalizedDir = direction.normalized;
 		_rigidbody.velocity = normalizedDir * speed;
-		_rigidbody.useGravity = false;
+		DisableGravity();
 
 		StartCoroutine(DashSlow());
 
@@ -132,38 +203,58 @@ public class PlatformerMovement : PlatformerEntity {
 
 	IEnumerator DashSlow(){
 
-		const float maxDrag = 10;
-		const float minDrag = 0;
-		const float dashDuration = 0.5f;
+		const float maxDrag = 25;
+		const float minDrag = 5;
+		const float dashDuration = 0.25f;
 		float dashTime = 0;
 
 		while (dashTime < dashDuration)
 		{
 			dashTime += Time.deltaTime;
-			float drag = Mathf.Lerp(maxDrag, minDrag, dashTime/dashDuration);
+			float drag = Mathf.Lerp(minDrag,maxDrag, dashTime/dashDuration);
+			//drag = 10;
 			_rigidbody.drag = drag;
 			yield return null;
 		}
 
 
-        yield return new WaitForSeconds(.3f);
+        //yield return new WaitForSeconds(1.3f);
 
 		DashEnd();
+
+		yield break;
 	}
 
 	void DashEnd(){
-		_rigidbody.useGravity = true;
-		_rigidbody.drag = 0;
+		//EnableGravity();
+		LockInputs(false);
+		_rigidbody.drag = 1;
+		isDashing = false;
+		EnableGravity();
+		//HaltDownwardsMomentum();
 	}
 
 	/***  Basic Movement  ******************************************************************/
 
 	public bool AttemptMovement(Vector3 moveInputs){
+		if(isDashing){
+			return false;
+		}
+
 		float moveSpeed = IsGrounded ? baseMoveSpeedGround : baseMoveSpeedAir;
 
 		Vector3 adjustedMovement = LimitHorizontalMovementDistance(moveInputs, moveSpeed, isCrouching);
 		if(adjustedMovement == Vector3.zero){
 			return false;
+		}
+
+		if(isWallJumping){
+			wallJumpLerpTime += Time.deltaTime;
+			adjustedMovement.x = Mathf.Lerp(0, adjustedMovement.x, wallJumpLerpTime / wallJumpLerpDuration); 
+			if(wallJumpLerpTime >= wallJumpLerpDuration){
+				isWallJumping = false;
+				wallJumpLerpTime = 0;
+			}
 		}
 
 		Vector3 newPosition = transform.position;
@@ -195,9 +286,9 @@ public class PlatformerMovement : PlatformerEntity {
 		int gMask = Layers.GetGroundMask(true);
 
 		//used to allow natural movement when colliding with slopes 
-		bool ascendingSlope = false;
+		bool isAscendingSlope = false;
 		Vector3 aSlopeNormal = Vector3.zero;
-		bool descendingSlope = false;
+		bool isDescendingSlope = false;
 		Vector3 dSlopeNormal = Vector3.zero;
 
 		for(int i = 0; i < numChecks; i++){
@@ -211,7 +302,7 @@ public class PlatformerMovement : PlatformerEntity {
 
 			//if hitting a slope, handle it (bottom raycast only)
 			if(i == 0 && Mathf.Abs(r.normal.y) > slopeWallThreshold){
-				ascendingSlope = true;
+				isAscendingSlope = true;
 				aSlopeNormal = r.normal;
 				continue;
 			}
@@ -236,7 +327,7 @@ public class PlatformerMovement : PlatformerEntity {
 			moveDir.x *= moveSpd * Time.deltaTime;
 		}
 
-		if(ascendingSlope){
+		if(isAscendingSlope){
 			moveDir = AscendSlope(moveDir,aSlopeNormal);
 		}
 
@@ -244,7 +335,7 @@ public class PlatformerMovement : PlatformerEntity {
 		bool slopeHit = Physics.Raycast(descendCheckStart, Vector3.down, out r, groundCheckRayLength, gMask);
 		if(slopeHit){
 			if(Mathf.Abs(r.normal.y) > slopeWallThreshold && (r.normal.x * moveDir.x > 0)){
-				descendingSlope = true;
+				isDescendingSlope = true;
 				dSlopeNormal = r.normal;
 
 				moveDir = DescendSlope(moveDir,dSlopeNormal);
